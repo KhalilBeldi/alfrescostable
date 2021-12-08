@@ -1,14 +1,20 @@
 package integration.service;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.http.HttpClient;
+import java.util.*;
 
 import javax.annotation.PostConstruct;
+import javax.servlet.http.Part;
 
+
+import integration.utility.Constants;
+import integration.utility.DirectoryTraverser;
+import integration.utility.HttpUtil;
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Document;
 import org.apache.chemistry.opencmis.client.api.Folder;
@@ -30,7 +36,9 @@ import org.apache.chemistry.opencmis.commons.enums.RelationshipDirection;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class CmisService {
@@ -96,6 +104,55 @@ public class CmisService {
         properties.put(PropertyIds.TARGET_ID, targetObject.getId());
 
         return session.createRelationship(properties);
+
+    }
+
+    public void documentUpload() throws IOException {
+
+        final String uploadURI = "http://localhost:8080/alfresco/service/api/upload";
+        final String authURI =  "http://localhost:8080/alfresco/service/api/login";
+        final String username = "admin";
+        final String password = "admin";
+        final String inputUri = "C:\\Users\\khalil.beldi\\Desktop\\first_pipeline\\uploads"; // files to be uploaded from this directory
+        final String siteID = "testpoc"; //id of the site for e.g if site name is TestPoc the id will be testpoc
+        final String uploadDir = "testUpload"; //directory created under document library
+
+        final HttpUtil httpUtil = new HttpUtil();
+        String authTicket = Constants.EMPTY;
+        try {
+
+            // Get the authentication ticket from alfresco.
+            //This authTicket will be used in all subsequent requests in order to get authenticated with alfresco.
+            // e.g TICKET_4b36ecaxxxxx5cdc5d782xxxxxxxxxxxx
+
+            authTicket = httpUtil.getAuthTicket(authURI, username, password);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        final StringBuffer responseBody= new StringBuffer();
+
+        final File fileObject = new File (inputUri);
+        //if uri is a directory the upload all files..
+        if(fileObject.isDirectory()){
+            final Set<File> setOfFiles = DirectoryTraverser.getFileUris(fileObject);
+            for (Iterator<File> iterator = setOfFiles.iterator(); iterator.hasNext();) {
+                final File fileObj = iterator.next();
+                //call document upload
+                if(fileObj.isFile()){
+                    responseBody.append(httpUtil.documentUpload(
+                            fileObj, authTicket, uploadURI, siteID,
+                            uploadDir));
+                    responseBody.append(Constants.BR);
+                }
+            }
+        }else{
+            responseBody.append(httpUtil.documentUpload(
+                    fileObject, authTicket, uploadURI, siteID,
+                    uploadDir));
+        }
+
+        System.out.println("Response of upload operation >>>: "+responseBody);
 
     }
 

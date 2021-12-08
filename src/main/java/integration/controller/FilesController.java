@@ -43,22 +43,17 @@ public class FilesController {
         String message = "";
         try {
             storageService.save(file);
-//
-//            Folder root = cmisService.getRootFolder();
-//
-//            Map<String, Object> properties = new HashMap<String, Object>();
-//            properties.put(PropertyIds.OBJECT_TYPE_ID, "cmis:folder");
-//            properties.put(PropertyIds.NAME, "a new folder");
-//
-//            Folder parent = root.createFolder(properties);
-
-
             message = "Uploaded the file successfully: " + file.getOriginalFilename();
+            cmisService.documentUpload();
             return ResponseEntity.status(HttpStatus.OK).body(new ResponseMessage(message));
         } catch (Exception e) {
             message = "Could not upload the file: " + file.getOriginalFilename() + "!";
             return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(new ResponseMessage(message));
         }
+
+
+
+
     }
 
 
