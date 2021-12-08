@@ -1,15 +1,10 @@
 package integration.service;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.math.BigInteger;
-import java.net.http.HttpClient;
 import java.util.*;
 
 import javax.annotation.PostConstruct;
-import javax.servlet.http.Part;
 
 
 import integration.utility.Constants;
@@ -35,10 +30,9 @@ import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.RelationshipDirection;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
+import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class CmisService {
@@ -56,8 +50,7 @@ public class CmisService {
     private Session session;
 
     @PostConstruct
-    public void init()
-    {
+    public void init() {
 
         String alfrescoBrowserUrl = alfrescoUrl + "/api/-default-/public/cmis/versions/1.1/browser";
 
@@ -74,13 +67,11 @@ public class CmisService {
 
     }
 
-    public Folder getRootFolder()
-    {
+    public Folder getRootFolder() {
         return session.getRootFolder();
     }
 
-    public Document createDocument(Folder folder, String documentName)
-    {
+    public Document createDocument(Folder folder, String documentName) {
 
         Map<String, Object> properties = new HashMap<String, Object>();
         properties.put(PropertyIds.OBJECT_TYPE_ID, "cmis:document");
@@ -94,8 +85,7 @@ public class CmisService {
         return folder.createDocument(properties, contentStream, VersioningState.MAJOR);
     }
 
-    public ObjectId createRelationship(CmisObject sourceObject, CmisObject targetObject, String relationshipName)
-    {
+    public ObjectId createRelationship(CmisObject sourceObject, CmisObject targetObject, String relationshipName) {
 
         Map<String, Object> properties = new HashMap<String, Object>();
         properties.put(PropertyIds.NAME, "a new relationship");
@@ -110,7 +100,7 @@ public class CmisService {
     public void documentUpload() throws IOException {
 
         final String uploadURI = "http://localhost:8080/alfresco/service/api/upload";
-        final String authURI =  "http://localhost:8080/alfresco/service/api/login";
+        final String authURI = "http://localhost:8080/alfresco/service/api/login";
         final String username = "admin";
         final String password = "admin";
         final String inputUri = "C:\\Users\\khalil.beldi\\Desktop\\first_pipeline\\uploads"; // files to be uploaded from this directory
@@ -130,38 +120,36 @@ public class CmisService {
             e.printStackTrace();
         }
 
-        final StringBuffer responseBody= new StringBuffer();
+        final StringBuffer responseBody = new StringBuffer();
 
-        final File fileObject = new File (inputUri);
+        final File fileObject = new File(inputUri);
         //if uri is a directory the upload all files..
-        if(fileObject.isDirectory()){
+        if (fileObject.isDirectory()) {
             final Set<File> setOfFiles = DirectoryTraverser.getFileUris(fileObject);
-            for (Iterator<File> iterator = setOfFiles.iterator(); iterator.hasNext();) {
+            for (Iterator<File> iterator = setOfFiles.iterator(); iterator.hasNext(); ) {
                 final File fileObj = iterator.next();
                 //call document upload
-                if(fileObj.isFile()){
+                if (fileObj.isFile()) {
                     responseBody.append(httpUtil.documentUpload(
                             fileObj, authTicket, uploadURI, siteID,
                             uploadDir));
                     responseBody.append(Constants.BR);
                 }
             }
-        }else{
+        } else {
             responseBody.append(httpUtil.documentUpload(
                     fileObject, authTicket, uploadURI, siteID,
                     uploadDir));
         }
 
-        System.out.println("Response of upload operation >>>: "+responseBody);
+        System.out.println("Response of upload operation >>>: " + responseBody);
 
     }
 
-    public void addAspect(CmisObject cmisObject, String aspect)
-    {
+    public void addAspect(CmisObject cmisObject, String aspect) {
 
         List<Object> aspects = cmisObject.getProperty("cmis:secondaryObjectTypeIds").getValues();
-        if (!aspects.contains(aspect))
-        {
+        if (!aspects.contains(aspect)) {
             aspects.add(aspect);
             Map<String, Object> aspectListProps = new HashMap<String, Object>();
             aspectListProps.put(PropertyIds.SECONDARY_OBJECT_TYPE_IDS, aspects);
@@ -170,13 +158,11 @@ public class CmisService {
 
     }
 
-    public void updateProperties(CmisObject cmisObject, Map<String, Object> properties)
-    {
+    public void updateProperties(CmisObject cmisObject, Map<String, Object> properties) {
         cmisObject.updateProperties(properties);
     }
 
-    public ItemIterable<Relationship> getRelationships(ObjectId objectId, String relationshipName)
-    {
+    public ItemIterable<Relationship> getRelationships(ObjectId objectId, String relationshipName) {
 
         ObjectType typeDefinition = session.getTypeDefinition(relationshipName);
         OperationContext operationContext = session.createOperationContext();
@@ -184,24 +170,81 @@ public class CmisService {
 
     }
 
-    public ItemIterable<QueryResult> query(String query)
-    {
+    public ItemIterable<QueryResult> query(String query) {
         return session.query(query, false);
     }
 
-    public void remove(CmisObject object)
-    {
+    public void remove(CmisObject object) {
 
-        if (BaseTypeId.CMIS_FOLDER.equals(object.getBaseTypeId()))
-        {
+        if (BaseTypeId.CMIS_FOLDER.equals(object.getBaseTypeId())) {
             Folder folder = (Folder) object;
             ItemIterable<CmisObject> children = folder.getChildren();
-            for (CmisObject child : children)
-            {
+            for (CmisObject child : children) {
                 remove(child);
             }
         }
         session.delete(object);
     }
+
+    public void downloadDocumentByPath(){
+
+        String folder = session.getRootFolder().getPath();
+
+        String path = "/Sites/testpoc/documentLibrary/testUpload/cv_khalil.pdf";
+
+        Document doc = (Document) session.getObjectByPath(path);
+
+        try{
+
+            ContentStream cs = doc.getContentStream(null);
+            BufferedInputStream in = new BufferedInputStream(cs.getStream());
+            File file = new File("C:\\Users\\khalil.beldi\\Desktop\\" + doc.getName());
+            file.createNewFile();
+            FileOutputStream fos = new FileOutputStream(file);
+            BufferedOutputStream bos = new BufferedOutputStream(fos);
+
+            byte[] buf = new byte[1024];
+
+            int n = 0;
+
+            while ((n = in.read(buf)) > 0){
+
+                bos.write(buf,0,n);
+
+            }
+
+            bos.close();
+            fos.close();
+            in.close();
+
+
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+    private Session getSession() {
+
+        String serverUrl = alfrescoUrl + "/api/-default-/public/cmis/versions/1.0/atom";
+
+        Map<String, String> parameter = new HashMap<String, String>();
+
+        parameter.put(SessionParameter.USER, alfrescoUser);
+        parameter.put(SessionParameter.PASSWORD, alfrescoPass);
+
+        parameter.put(SessionParameter.BROWSER_URL, serverUrl);
+        parameter.put(SessionParameter.BINDING_TYPE, BindingType.BROWSER.value());
+
+        SessionFactory factory = SessionFactoryImpl.newInstance();
+        session = factory.getRepositories(parameter).get(0).createSession();
+
+        return session;
+
+    }
+
 
 }
