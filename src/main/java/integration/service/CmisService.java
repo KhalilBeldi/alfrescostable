@@ -227,6 +227,8 @@ public class CmisService {
 
     }
 
+
+
     private Session getSession() {
 
         String serverUrl = alfrescoUrl + "/api/-default-/public/cmis/versions/1.0/atom";
