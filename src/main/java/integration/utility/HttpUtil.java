@@ -59,7 +59,6 @@ public final class HttpUtil {
         return responseMap;
     }
 
-
     /**
      * Gets the auth ticket.
      *

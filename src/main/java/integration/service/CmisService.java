@@ -5,8 +5,9 @@ import java.math.BigInteger;
 import java.util.*;
 
 import javax.annotation.PostConstruct;
+import javax.print.Doc;
 
-
+import integration.DTO.DocumentInfo;
 import integration.utility.Constants;
 import integration.utility.DirectoryTraverser;
 import integration.utility.HttpUtil;
@@ -25,12 +26,12 @@ import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
+import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.RelationshipDirection;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
-import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -94,8 +95,8 @@ public class CmisService {
         properties.put(PropertyIds.TARGET_ID, targetObject.getId());
 
         return session.createRelationship(properties);
-
     }
+
 
     public void documentUpload() throws IOException {
 
@@ -143,7 +144,6 @@ public class CmisService {
         }
 
         System.out.println("Response of upload operation >>>: " + responseBody);
-
     }
 
     public void addAspect(CmisObject cmisObject, String aspect) {
@@ -172,6 +172,29 @@ public class CmisService {
 
     public ItemIterable<QueryResult> query(String query) {
         return session.query(query, false);
+    }
+
+    public List<DocumentInfo> getSiteContent(){
+
+        List<DocumentInfo> docs = new ArrayList<>();
+
+        ItemIterable<QueryResult> results = query("SELECT cmis:name FROM cmis:document WHERE CONTAINS('PATH:\"/app:company_home/st:sites/cm:testpoc/cm:documentLibrary/cm:testUpload/*\"')");
+
+        for(QueryResult hit: results) {
+            for(PropertyData<?> property: hit.getProperties()) {
+
+                String queryName = property.getQueryName();
+                String value = (String) property.getFirstValue();
+
+                docs.add(new DocumentInfo(value));
+
+                System.out.println(queryName + ": " + value);
+            }
+            System.out.println("--------------------------------------");
+        }
+
+        return docs;
+
     }
 
     public void remove(CmisObject object) {
@@ -224,9 +247,49 @@ public class CmisService {
             e.printStackTrace();
         }
 
-
     }
 
+    public void downloadDocumentByPath(DocumentInfo document){
+
+        String folder = session.getRootFolder().getPath();
+
+        String path = "/Sites/testpoc/documentLibrary/testUpload/"+document.getName();
+
+        System.out.println(path);
+
+        Document doc = (Document) session.getObjectByPath(path);
+
+        try{
+
+            ContentStream cs = doc.getContentStream(null);
+            BufferedInputStream in = new BufferedInputStream(cs.getStream());
+            File file = new File("C:\\Users\\khalil.beldi\\Desktop\\" + doc.getName());
+            file.createNewFile();
+            FileOutputStream fos = new FileOutputStream(file);
+            BufferedOutputStream bos = new BufferedOutputStream(fos);
+
+            byte[] buf = new byte[1024];
+
+            int n = 0;
+
+            while ((n = in.read(buf)) > 0){
+
+                bos.write(buf,0,n);
+
+            }
+
+            bos.close();
+            fos.close();
+            in.close();
+
+
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
 
 
     private Session getSession() {
@@ -245,8 +308,9 @@ public class CmisService {
         session = factory.getRepositories(parameter).get(0).createSession();
 
         return session;
-
     }
+
+
 
 
 }

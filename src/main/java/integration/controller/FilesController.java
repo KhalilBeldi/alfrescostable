@@ -1,5 +1,6 @@
 package integration.controller;
 
+import integration.DTO.DocumentInfo;
 import integration.DTO.ResponseMessage;
 import integration.entities.FileInfo;
 import integration.service.CmisService;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.MvcUriComponentsBuilder;
 
+import javax.print.Doc;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -71,8 +73,14 @@ public class FilesController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"").body(file);
     }
 
-    @GetMapping("/download")
-    public void download(){
-        cmisService.downloadDocumentByPath();
+    @PostMapping("/download")
+    public void download(@RequestBody DocumentInfo document){
+        cmisService.downloadDocumentByPath(document);
+    }
+
+    @GetMapping("/content")
+    public ResponseEntity<List<DocumentInfo>> getContent(){
+        List<DocumentInfo> listOfDocs = this.cmisService.getSiteContent();
+        return new ResponseEntity<>(listOfDocs,HttpStatus.OK);
     }
 }
